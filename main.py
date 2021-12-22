@@ -1,29 +1,31 @@
 import os
-import random
 
 from core.graph import Graph
-from core.scene import Scene
+from core.solver import Solver
+from core.helper import check_dir
 
 
-def main(path, name, n_agents=3, random_seed=10):
-    random.seed(random_seed, 2)
+def main(path, map_name, n_agents=3, random_seed=10):
+    result_path = "./routes"
+    check_dir(result_path)
 
     g = Graph()
-    g.load_map(os.path.join(path, name))
+    g.load_map(os.path.join(path, map_name))
 
-    s = Scene(g)
-    s.place_random_agents(n_agents)
-    s.start()
-    s.make_map_image(f"./routes/{name}")
-    n = 0
-    while s.next():
-        n += 1
-        s.make_map_image(f"./routes/{name}.{n}")
-    print(f"done: {name}.png")
+    solver = Solver(g, n_agents, map_name, "./routes/", random_seed=random_seed)
+    if not solver.hls_pbs(verbose=1):
+        print(f"fail: {solver.error}: {map_name}.map")
+        return 1
+
+    solver.make_result(result_path, map_name)
+    print(f"success: {map_name}.text")
+    return 0
 
 
-# main("./maps", "simple", 3, 10)
-main("./maps", "simple", 3, 100)
-# main("./maps", "article")
-# main("./maps", "lera")
+# main("./maps", "simple", 3, 13)  # collision agent 2 vertex 2
+# main("./maps", "simple", 3, 212)  # collision agent 2 vertex 9
+# main("./maps", "simple", 3, 100)  # ok
+# main("./maps", "simple", 3, 10)  # ok
+# main("./maps", "article")  # cannot build path 18->1
+main("./maps", "lera")
 # random.seed(100, 2)

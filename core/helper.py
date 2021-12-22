@@ -1,4 +1,5 @@
 from typing import Optional
+import os
 
 from .conf import CW, CH, CW2, CH2, DX, DY
 
@@ -51,7 +52,20 @@ def has_id_in_nodes(node_id: int, nodes: dict) -> bool:
     return get_node(node_id, nodes) is not None
 
 
+def is_agent_finished(agent):
+    f = agent.get("f")
+    i = agent.get("i")
+    if i is None:
+        i = agent.get("s")
+    return f == i
+
+
 def check_edge(edge: dict, nodes: dict) -> bool:
     if edge is None:
         return False
     return has_id_in_nodes(edge.get("a"), nodes) and has_id_in_nodes(edge.get("b"), nodes)
+
+
+def check_dir(path: str):
+    if not os.path.isdir(path):
+        os.mkdir(path)

@@ -1,9 +1,10 @@
 import copy
+import os
 import random
 from PIL import Image, ImageDraw, ImageFont
 
 from .conf import CW, CH, AW2, AH2, AW4, AH4
-from .helper import get_x, get_y, get_node
+from .helper import get_x, get_y, get_node, is_agent_finished
 
 
 class Scene:
@@ -11,7 +12,11 @@ class Scene:
         self.graph = graph
         self.agents = {}
         self.agent_sq = []
+        self.constraints = {}
         self.t = 0
+        self.debug = {}
+        self.collisions = []
+        self.decision_id = -1
 
     def get_random_free_node(self, except_node_id=-1):
         while True:
@@ -32,13 +37,16 @@ class Scene:
         return True
 
     def detect_optimal_path(self, n_agent):
+        self.debug = {}
         agent = self.agents[n_agent]
         s_node_id = agent.get("s")
         f_node_id = agent.get("f")
-        ns = self.graph.get_neighbors(s_node_id)
-        paths = [[n] for n in ns]
-        used_nodes = set(ns)
+        used_nodes = set(self.constraints[n_agent])
         used_nodes.add(s_node_id)
+        ns = self.graph.get_neighbors(s_node_id, used_nodes)
+        paths = [[n] for n in ns]
+        for n in set(ns):
+            used_nodes.add(n)
         while True:
             has_neighbors = 0
             for i, p in enumerate(paths):
@@ -59,41 +67,138 @@ class Scene:
                     ppp.append(n)
                     paths.append(ppp)
             if has_neighbors == 0:
+                self.debug = dict(a=n_agent, s=s_node_id, f=f_node_id)
                 return None
 
-    def place_random_agents(self, n_agents):
+    def place_random_agents(self, n_agents, random_seed=10):
+        random.seed(random_seed, 2)
         self.agents = {}
         for a in range(n_agents):
             s_node_id = self.get_random_free_node()
             f_node_id = self.get_random_free_node(s_node_id)
             self.agents[a] = dict(s=s_node_id, f=f_node_id)
-        for a_id in self.agents:
-            self.agents[a_id]["p"] = self.detect_optimal_path(a_id)
 
     def start(self):
-        self.agent_sq = self.agents.keys()
         self.t = -1
+        for a_id, agent in self.agents.items():
+            agent["i"] = agent["s"]
+        return True
+
+    def try_next(self) -> bool:
+        self.collisions = []
+        nodes_occupied = []
+        edges_occupied = []
         for a_id in self.agent_sq:
             agent = self.agents[a_id]
-            agent["i"] = agent["s"]
-            if agent.get("p") is None:
-                return False
-        return True
+            agent_has_collision = False
+            i = agent.get("i")
+            if is_agent_finished(agent):
+                nodes_occupied.append(i)
+                continue
+            i = agent.get("i")
+            path = agent.get("p")
+            ii = path[self.t+1]
+            if ii in nodes_occupied:
+                agent_has_collision = True
+                self.collisions.append(dict(a=a_id, mode="vertex", i=ii, msg=f"collision in vertex {ii}"))
+            nodes_occupied.append(ii)
+
+            if (i, ii) in edges_occupied:
+                if not agent_has_collision:
+                    self.collisions.append(dict(a=a_id, mode="edge", i=i, ii=ii, msg=f"collision in edge ({i},{ii})"))
+                    agent_has_collision = True
+            edges_occupied.append((i, ii))
+
+            if (ii, i) in edges_occupied:
+                if not agent_has_collision:
+                    self.collisions.append(dict(a=a_id, mode="edge", i=ii, ii=i, msg=f"collision in edge ({ii},{i})"))
+                    agent_has_collision = True
+            edges_occupied.append((ii, i))
+            agent["c"] = agent_has_collision
+
+        return len(self.collisions) == 0  # has collisions
 
     def next(self):
         self.t += 1
         n_finished = 0
         for a_id in self.agent_sq:
             agent = self.agents[a_id]
-            f_id = agent["f"]
-            i_id = agent["i"]
-            if f_id == i_id:
+            if is_agent_finished(agent):
                 n_finished += 1
                 continue
 
             path = agent.get("p")
             agent["i"] = path[self.t]
         return n_finished < len(self.agent_sq)
+
+    def detect_soc(self):
+        r = 0
+        for a_id, agent in self.agents.items():
+            path = agent["p"]
+            r += len(path)
+        return r
+
+    def detect_makespan(self):
+        r = 0
+        for a_id, agent in self.agents.items():
+            path = agent["p"]
+            r = max(r, len(path))
+        return r
+
+    def starts(self):
+        r = ""
+        for a_id, agent in self.agents.items():
+            s = agent.get("s")
+            n = get_node(s, self.graph.nodes)
+            x = round(n.get("x"))
+            y = round(n.get("y"))
+            r += f"({x},{y}),"
+        return r
+
+    def goals(self):
+        r = ""
+        for a_id, agent in self.agents.items():
+            f = agent.get("f")
+            n = get_node(f, self.graph.nodes)
+            x = round(n.get("x"))
+            y = round(n.get("y"))
+            r += f"({x},{y}),"
+        return r
+
+    def make_result(self, f_path, fn, solver, decisions):
+        span = self.detect_makespan()
+        lines = ["instance=none\n",
+                 f"agents={len(self.agents)}\n",
+                 f"map_file={fn}.map\n",
+                 f"solver={solver}\n",
+                 "solved=0\n",
+                 f"soc={self.detect_soc()}\n",
+                 f"makespan={span}\n",
+                 f"comp_time={decisions}\n",
+                 f"starts={self.starts()}\n",
+                 f"goals={self.goals()}\n",
+                 "solution=\n"]
+        for a_id, agent in self.agents.items():
+            p = agent.get("p")
+            s_id = agent.get("s")
+            n = get_node(s_id, self.graph.nodes)
+            x, y = round(n.get("x")), round(n.get("y"))
+            s = f"{a_id}:({x},{y}),"
+            for i in p:
+                n = get_node(i, self.graph.nodes)
+                x, y = round(n.get("x")), round(n.get("y"))
+                s += f"({x},{y}),"
+
+            # to align to makespan
+            # if len(p) < span:
+            #     for _ in range(span - len(p)):
+            #         s += f"({x},{y}),"
+
+            lines.append(s+"\n")
+
+        with open(os.path.join(f_path, fn+".txt"), "w") as f:
+            f.writelines(lines)
+            f.close()
 
     def make_map_image(self, fn):
         x_max = self.graph.get_x_max()
@@ -128,6 +233,5 @@ class Scene:
                 x, y, = self.graph.get_node_d_rect(i_node_id, n_id)
                 draw.rectangle((x - AW4, y - AH4, x + AW4, y + AH4), fill="green")
                 draw.text((x, y), str(len(p)), font=font, fill="white", anchor="mm")
-
 
         image.save(fn+'.png')

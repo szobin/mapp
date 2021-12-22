@@ -47,7 +47,7 @@ class Graph:
             if (exceptions is not None) and (b_node_id in exceptions):
                 continue
             ns.append(b_node_id)
-        return ns
+        return list(set(ns))
 
     def get_node_rect(self, n_id):
         node = get_node(n_id, self.nodes)
