@@ -42,16 +42,22 @@ class Solver:
                 self.scene.make_map_image(os.path.join(self.result_path,
                                                        f"{self.map_name}.{self.scene.decision_id}.{t}"))
             n = len(self.scene.collisions)
-            self.error = f"scene {t} has {n} collision(s)"
+            self.error = f"decision {self.n_decision}: scene {t} has {n} collision(s)"
         return not has_collusion
 
     def make_result(self, result_path, map_name):
-        self.scene.make_result(result_path, map_name, self.name, self.n_decision)
+        self.scene.make_result(result_path, map_name, self.name, self.n_decision, align=True)
 
     def update_plan(self, decision, n_agent) -> bool:
         self.scene.constraints[n_agent] = decision.constraints[n_agent]
         path = self.scene.detect_optimal_path(n_agent)
         decision.plan[n_agent] = path
+        if path is None:
+            agent = self.scene.agents[n_agent]
+            s = agent.get("s")
+            f = agent.get("f")
+            self.error = f"cannot build any path from vertex {s} to {f} for agent {n_agent}"
+
         return path is not None
 
     def hls_pbs(self, verbose=0, max_cycles=100):
@@ -62,10 +68,7 @@ class Solver:
         for a_i in self.scene.agents:
             success = self.update_plan(root, a_i)
             if not success:
-                a = self.scene.debug.get("a")
-                s = self.scene.debug.get("s")
-                f = self.scene.debug.get("f")
-                self.error = f"No solution: cannot build any path from vertex {s} to {f} for agent {a}"
+                self.error = "No solution: " + self.error
                 return False
 
         root.calc_cost()
@@ -75,6 +78,7 @@ class Solver:
             n = stack[-1]
             del stack[-1]
 
+            # check collision here
             if self.fit(n, verbose=verbose):
                 return True
 
@@ -82,9 +86,8 @@ class Solver:
             for c in self.scene.collisions:
                 a_i = c.get("ai")
                 a_j = c.get("aj")
-                agent = self.scene.agents[a_i]
-                i = c.get("i")
-                ii = c.get("ii")
+                mode = c.get("mode")
+                e_a, e_b = c.get("e")
 
                 self.n_decision += 1
                 # to avoid of infinite cycle
@@ -97,8 +100,10 @@ class Solver:
                 n1.agent_sq = n.agent_sq
 
                 # update constraints
-                f = agent["f"]
-                n1.update_constraints(a_i, (i, ii), f)
+                if mode == 'vertex':
+                    n1.update_constraints(a_i, (e_b, ))
+                else:
+                    n1.update_constraints(a_i, (e_a, e_b))
                 # update agents sequence
                 n1.update_sequence(a_i, a_j)
 
@@ -111,5 +116,5 @@ class Solver:
             for _d in dd:
                 stack.append(_d)
 
-        self.error = f"No solution: {self.error}"
+        self.error = "No solution: " + self.error
         return False

@@ -11,6 +11,7 @@ class Decision:
         for a_id in self.plan:
             path = self.plan[a_id]
             self.scene.agents[a_id]["p"] = path
+            self.scene.agents[a_id]["c"] = False
 
         self.scene.constraints = self.constraints
         self.scene.agent_sq = self.agent_sq
@@ -20,10 +21,12 @@ class Decision:
     def calc_cost(self):
         self.cost = max([len(path) if path is not None else 0 for a_id, path in self.plan.items()])
 
-    def update_constraints(self, a_id, ii, f):
-        for i in ii:
-            if (i is not None) and (i != f):
-                self.constraints[a_id].append(i)
+    def update_constraints(self, a_id, edge):
+        agent = self.scene.agents[a_id]
+        f = agent.get("f")
+        for e in edge:
+            if (e is not None) and (e != f):
+                self.constraints[a_id].append(e)
 
     def update_sequence(self, a_i, a_j):
         i = self.agent_sq.index(a_i)

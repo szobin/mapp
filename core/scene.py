@@ -14,7 +14,6 @@ class Scene:
         self.agent_sq = []
         self.constraints = {}
         self.t = 0
-        self.debug = {}
         self.collisions = []
         self.decision_id = -1
 
@@ -37,7 +36,6 @@ class Scene:
         return True
 
     def detect_optimal_path(self, n_agent):
-        self.debug = {}
         agent = self.agents[n_agent]
         s_node_id = agent.get("s")
         f_node_id = agent.get("f")
@@ -67,7 +65,6 @@ class Scene:
                     ppp.append(n)
                     paths.append(ppp)
             if has_neighbors == 0:
-                self.debug = dict(a=n_agent, s=s_node_id, f=f_node_id)
                 return None
 
     def place_random_agents(self, n_agents, random_seed=10):
@@ -88,33 +85,40 @@ class Scene:
         self.collisions = []
         nodes_occupied = {}
         edges_occupied = []
+        # for finished agents
+        for a_id, agent in self.agents.items():
+            if is_agent_finished(agent):
+                i = agent.get("f")
+                nodes_occupied[i] = a_id
+
         for a_id in self.agent_sq:
             agent = self.agents[a_id]
             agent_has_collision = False
-            i = agent.get("i")
             if is_agent_finished(agent):
-                nodes_occupied[i] = a_id
                 continue
-            i = agent.get("i")
+
+            e_a = agent.get("i")
             path = agent.get("p")
-            ii = path[self.t+1]
-            if ii in nodes_occupied:
+            e_b = path[self.t+1]
+            if e_b in nodes_occupied:
                 agent_has_collision = True
-                self.collisions.append(dict(ai=a_id, aj=nodes_occupied[ii], mode="vertex", i=ii,
-                                            msg=f"collision in vertex {ii}"))
-            nodes_occupied[ii] = a_id
+                self.collisions.append(dict(ai=a_id, aj=nodes_occupied[e_b], mode="vertex", e=(e_a, e_b),
+                                            msg=f"collision in vertex {e_b}"))
+            nodes_occupied[e_b] = a_id
 
-            if (i, ii) in edges_occupied:
+            if (e_a, e_b) in edges_occupied:
                 if not agent_has_collision:
-                    self.collisions.append(dict(ai=a_id, mode="edge", i=i, ii=ii, msg=f"collision in edge ({i},{ii})"))
+                    self.collisions.append(dict(ai=a_id, mode="edge", e=(e_a, e_b),
+                                                msg=f"collision in edge ({e_a},{e_b})"))
                     agent_has_collision = True
-            edges_occupied.append((i, ii))
+            edges_occupied.append((e_a, e_b))
 
-            if (ii, i) in edges_occupied:
+            if (e_b, e_a) in edges_occupied:
                 if not agent_has_collision:
-                    self.collisions.append(dict(ai=a_id, mode="edge", i=ii, ii=i, msg=f"collision in edge ({ii},{i})"))
+                    self.collisions.append(dict(ai=a_id, mode="edge", e=(e_b, e_a),
+                                                msg=f"collision in edge ({e_b},{e_a})"))
                     agent_has_collision = True
-            edges_occupied.append((ii, i))
+            edges_occupied.append((e_b, e_a))
             agent["c"] = agent_has_collision
 
         return len(self.collisions) == 0  # has collisions
@@ -166,7 +170,7 @@ class Scene:
             r += f"({x},{y}),"
         return r
 
-    def make_result(self, f_path, fn, solver, decisions):
+    def make_result(self, f_path, fn, solver, decisions, align=False):
         span = self.detect_makespan()
         lines = ["instance=none\n",
                  f"agents={len(self.agents)}\n",
@@ -190,10 +194,10 @@ class Scene:
                 x, y = round(n.get("x")), round(n.get("y"))
                 s += f"({x},{y}),"
 
-            # to align to makespan
-            # if len(p) < span:
-            #     for _ in range(span - len(p)):
-            #         s += f"({x},{y}),"
+            if align:
+                if len(p) < span:
+                    for _ in range(span - len(p)):
+                        s += f"({x},{y}),"
 
             lines.append(s+"\n")
 
