@@ -30,12 +30,17 @@ class Solver:
                 # all finished
                 has_collusion = False
                 break
+
+            if verbose > 0:
+                t = self.scene.t + 1
+                self.scene.make_map_image(os.path.join(self.result_path,
+                                                       f"{self.map_name}.{self.scene.decision_id}.{t}"))
+
+        if has_collusion:
             t = self.scene.t + 1
             if verbose > 0:
                 self.scene.make_map_image(os.path.join(self.result_path,
                                                        f"{self.map_name}.{self.scene.decision_id}.{t}"))
-        if has_collusion:
-            t = self.scene.t + 1
             n = len(self.scene.collisions)
             self.error = f"scene {t} has {n} collision(s)"
         return not has_collusion
@@ -49,7 +54,7 @@ class Solver:
         decision.plan[n_agent] = path
         return path is not None
 
-    def hls_pbs(self, verbose=0):
+    def hls_pbs(self, verbose=0, max_cycles=100):
         self.error = ""
 
         self.n_decision = 1
@@ -75,14 +80,15 @@ class Solver:
 
             dd = []
             for c in self.scene.collisions:
-                a_id = c.get("a")
-                agent = self.scene.agents[a_id]
+                a_i = c.get("ai")
+                a_j = c.get("aj")
+                agent = self.scene.agents[a_i]
                 i = c.get("i")
                 ii = c.get("ii")
 
                 self.n_decision += 1
                 # to avoid of infinite cycle
-                if self.n_decision > 100:
+                if self.n_decision > max_cycles:
                     break
 
                 n1 = Decision(self.scene, self.n_decision)
@@ -92,11 +98,11 @@ class Solver:
 
                 # update constraints
                 f = agent["f"]
-                n1.update_constraints(a_id, (i, ii), f)
+                n1.update_constraints(a_i, (i, ii), f)
                 # update agents sequence
-                n1.update_sequence(a_id)
+                n1.update_sequence(a_i, a_j)
 
-                success = self.update_plan(n1, a_id)
+                success = self.update_plan(n1, a_i)
                 if success:
                     n1.calc_cost()
                     dd.append(n1)

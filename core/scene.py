@@ -86,32 +86,33 @@ class Scene:
 
     def try_next(self) -> bool:
         self.collisions = []
-        nodes_occupied = []
+        nodes_occupied = {}
         edges_occupied = []
         for a_id in self.agent_sq:
             agent = self.agents[a_id]
             agent_has_collision = False
             i = agent.get("i")
             if is_agent_finished(agent):
-                nodes_occupied.append(i)
+                nodes_occupied[i] = a_id
                 continue
             i = agent.get("i")
             path = agent.get("p")
             ii = path[self.t+1]
             if ii in nodes_occupied:
                 agent_has_collision = True
-                self.collisions.append(dict(a=a_id, mode="vertex", i=ii, msg=f"collision in vertex {ii}"))
-            nodes_occupied.append(ii)
+                self.collisions.append(dict(ai=a_id, aj=nodes_occupied[ii], mode="vertex", i=ii,
+                                            msg=f"collision in vertex {ii}"))
+            nodes_occupied[ii] = a_id
 
             if (i, ii) in edges_occupied:
                 if not agent_has_collision:
-                    self.collisions.append(dict(a=a_id, mode="edge", i=i, ii=ii, msg=f"collision in edge ({i},{ii})"))
+                    self.collisions.append(dict(ai=a_id, mode="edge", i=i, ii=ii, msg=f"collision in edge ({i},{ii})"))
                     agent_has_collision = True
             edges_occupied.append((i, ii))
 
             if (ii, i) in edges_occupied:
                 if not agent_has_collision:
-                    self.collisions.append(dict(a=a_id, mode="edge", i=ii, ii=i, msg=f"collision in edge ({ii},{i})"))
+                    self.collisions.append(dict(ai=a_id, mode="edge", i=ii, ii=i, msg=f"collision in edge ({ii},{i})"))
                     agent_has_collision = True
             edges_occupied.append((ii, i))
             agent["c"] = agent_has_collision
@@ -212,6 +213,9 @@ class Scene:
         for a_id, agent in self.agents.items():
             f_node_id = agent.get("f")
             f_node = get_node(f_node_id, self.graph.nodes)
+            agent_has_collision = agent.get("c")
+            if agent_has_collision is None:
+                agent_has_collision = False
             cx, cy = f_node.get("x"), f_node.get("y")
             x, y = get_x(cx), get_y(cy)
             draw.ellipse((x - AW2, y - AH2, x + AW2, y + AH2), fill="white")
@@ -231,7 +235,8 @@ class Scene:
             if (not agent_finished) and (p is not None):
                 n_id = p[self.t+1]
                 x, y, = self.graph.get_node_d_rect(i_node_id, n_id)
-                draw.rectangle((x - AW4, y - AH4, x + AW4, y + AH4), fill="green")
+                color = "red" if agent_has_collision else "green"
+                draw.rectangle((x - AW4, y - AH4, x + AW4, y + AH4), fill=color)
                 draw.text((x, y), str(len(p)), font=font, fill="white", anchor="mm")
 
         image.save(fn+'.png')

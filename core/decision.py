@@ -25,8 +25,10 @@ class Decision:
             if (i is not None) and (i != f):
                 self.constraints[a_id].append(i)
 
-    def update_sequence(self, a_id):
-        i = self.agent_sq.index(a_id)
-        if i > 0:
-            del self.agent_sq[i]
-            self.agent_sq.insert(0, a_id)
+    def update_sequence(self, a_i, a_j):
+        i = self.agent_sq.index(a_i)
+        j = self.agent_sq.index(a_j) if a_j is not None else 0
+        if i != j:
+            v = self.agent_sq[i]
+            self.agent_sq[i] = self.agent_sq[j]
+            self.agent_sq[j] = v

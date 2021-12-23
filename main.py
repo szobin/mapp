@@ -22,10 +22,9 @@ def main(path, map_name, n_agents=3, random_seed=10):
     return 0
 
 
-# main("./maps", "simple", 3, 13)  # collision agent 2 vertex 2
-# main("./maps", "simple", 3, 212)  # collision agent 2 vertex 9
-# main("./maps", "simple", 3, 100)  # ok
-# main("./maps", "simple", 3, 10)  # ok
-# main("./maps", "article")  # cannot build path 18->1
-main("./maps", "lera")
+# main("./maps", "small", 3, 13)  # collision agent 2 vertex 2
+# main("./maps", "small", 3, 212)  # collision agent 2 vertex 9
+# main("./maps", "small", 3, 100)  # ok
+# main("./maps", "small", 3, 10)  # ok
+main("./maps", "sample")
 # random.seed(100, 2)
