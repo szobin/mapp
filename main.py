@@ -6,19 +6,27 @@ from core.helper import check_dir
 
 
 def main(path, map_name, n_agents=3, random_seed=10):
+    print(f"MAPP started for {map_name}")
     result_path = "./routes"
     check_dir(result_path)
 
     g = Graph()
-    g.load_map(os.path.join(path, map_name))
+    if not g.load_map(os.path.join(path, map_name)):
+        print(f" - load map failed: {g.error}: {map_name}.map")
+        return 1
+    print(" - load map OK")
 
     solver = Solver(g, n_agents, map_name, "./routes/", random_seed=random_seed)
     if not solver.hls_pbs(verbose=1):
         print(f"fail: {solver.error}: {map_name}.map")
         return 1
+    print(f" - solved OK: {solver.n_decision} decision(s)")
 
-    solver.make_result(result_path, map_name)
-    print(f"success: {map_name}.text")
+    if not solver.make_result(result_path):
+        print(f" - result store failed: {solver.error}: {map_name}.txt")
+        return 1
+
+    print(f" - result stored OK: {map_name}.txt")
     return 0
 
 

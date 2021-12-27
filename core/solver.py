@@ -45,8 +45,8 @@ class Solver:
             self.error = f"decision {self.n_decision}: scene {t} has {n} collision(s)"
         return not has_collusion
 
-    def make_result(self, result_path, map_name):
-        self.scene.make_result(result_path, map_name, self.name, self.n_decision, align=True)
+    def make_result(self, result_path):
+        return self.scene.make_result(result_path, self.map_name, self.name, self.n_decision, align=True)
 
     def update_plan(self, decision, n_agent) -> bool:
         self.scene.constraints[n_agent] = decision.constraints[n_agent]

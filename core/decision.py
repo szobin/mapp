@@ -11,7 +11,6 @@ class Decision:
         for a_id in self.plan:
             path = self.plan[a_id]
             self.scene.agents[a_id]["p"] = path
-            self.scene.agents[a_id]["c"] = False
 
         self.scene.constraints = self.constraints
         self.scene.agent_sq = self.agent_sq

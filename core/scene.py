@@ -17,12 +17,6 @@ class Scene:
         self.collisions = []
         self.decision_id = -1
 
-    def get_random_free_node(self, except_node_id=-1):
-        while True:
-            node_id = random.choice(list(self.graph.nodes.keys()))
-            if self.is_node_free(node_id, except_node_id=except_node_id):
-                return node_id
-
     def is_node_free(self, node_id, except_node_id=None):
         if except_node_id == node_id:
             return False
@@ -34,6 +28,20 @@ class Scene:
             if f_node_id == node_id:
                 return False
         return True
+
+    def get_random_free_node(self, except_node_id=-1):
+        while True:
+            node_id = random.choice(list(self.graph.nodes.keys()))
+            if self.is_node_free(node_id, except_node_id=except_node_id):
+                return node_id
+
+    def place_random_agents(self, n_agents, random_seed=10):
+        random.seed(random_seed, 2)
+        self.agents = {}
+        for a in range(n_agents):
+            s_node_id = self.get_random_free_node()
+            f_node_id = self.get_random_free_node(s_node_id)
+            self.agents[a] = dict(s=s_node_id, f=f_node_id)
 
     def detect_optimal_path(self, n_agent):
         agent = self.agents[n_agent]
@@ -67,18 +75,12 @@ class Scene:
             if has_neighbors == 0:
                 return None
 
-    def place_random_agents(self, n_agents, random_seed=10):
-        random.seed(random_seed, 2)
-        self.agents = {}
-        for a in range(n_agents):
-            s_node_id = self.get_random_free_node()
-            f_node_id = self.get_random_free_node(s_node_id)
-            self.agents[a] = dict(s=s_node_id, f=f_node_id)
-
     def start(self):
         self.t = -1
         for a_id, agent in self.agents.items():
             agent["i"] = agent["s"]
+            agent["c"] = False
+
         return True
 
     def try_next(self) -> bool:
@@ -204,6 +206,7 @@ class Scene:
         with open(os.path.join(f_path, fn+".txt"), "w") as f:
             f.writelines(lines)
             f.close()
+        return True
 
     def make_map_image(self, fn):
         x_max = self.graph.get_x_max()

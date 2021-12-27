@@ -9,19 +9,30 @@ class Graph:
     def __init__(self):
         self.nodes = {}
         self.edges = []
+        self.error = ""
 
     def load_map(self, a_name: str):
-        with open(os.path.join(a_name, 'nodes.txt'), 'r') as f_nodes:
+        self.error = ""
+        fn = os.path.join(a_name, 'nodes.txt')
+        if not os.path.isfile(fn):
+            self.error = f"nodes file not found: {fn}"
+            return False
+        with open(fn, 'r') as f_nodes:
             node_lines = f_nodes.readlines()
             f_nodes.close()
 
-        with open(os.path.join(a_name, 'edges.txt'), 'r') as f_edges:
+        fn = os.path.join(a_name, 'edges.txt')
+        if not os.path.isfile(fn):
+            self.error = f"edges file not found: {fn}"
+            return False
+        with open(fn, 'r') as f_edges:
             edge_lines = f_edges.readlines()
             f_edges.close()
 
         node_list = filter(lambda item: item is not None, map(to_node, node_lines))
         self.nodes = {node.get("id"): {'x': node.get("x"), 'y': node.get("y")} for node in node_list}
         self.edges = list(filter(lambda item: check_edge(item, self.nodes), map(to_edge, edge_lines)))
+        return True
 
     def get_x_max(self):
         x_max = 0
